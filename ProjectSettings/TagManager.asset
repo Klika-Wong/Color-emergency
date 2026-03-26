@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!78 &1
+TagManager:
+  serializedVersion: 2
+  tags:
+  - Cherry
+  - Trap
+  layers:
+  - Default
+  - TransparentFX
+  - Ignore Raycast
+  - 
+  - Water
+  - UI
+  - Ground
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  m_SortingLayers:
+  - name: 111
+    uniqueID: 420674829
+    locked: 0
+  - name: back
+    uniqueID: 3371079879
+    locked: 0
+  - name: Default
+    uniqueID: 0
+    locked: 0
+  - name: level2
+    uniqueID: 175971837
+    locked: 0
+  - name: 3
+    uniqueID: 1965843151
+    locked: 0
+  - name: 4
+    uniqueID: 3807380853
+    locked: 0

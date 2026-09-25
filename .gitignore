@@ -12,6 +12,10 @@
 [Uu]ser[Ss]ettings/
 *.log
 
+# Python caches used by external input helpers
+__pycache__/
+*.py[cod]
+
 # MemoryCaptures can get excessive in size.
 # They also could contain extremely sensitive data
 /[Mm]emoryCaptures/

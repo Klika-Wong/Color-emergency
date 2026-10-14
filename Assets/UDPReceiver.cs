@@ -18,40 +18,50 @@ public class UDPReceiver : MonoBehaviour
     public PlayerMovement playerMovement;
     public item_collector itemCollector;
 
-    // --- 内部变量 ---
     private UdpClient client;
     private Thread receiveThread;
     private string lastData = "";
-    private readonly object dataLock = new object(); // 线程锁，确保数据安全
+    private string receiveError = "";
+    private readonly object dataLock = new object();
+    private volatile bool stopping;
 
-    // ==================== 初始化 ====================
     private void Start()
     {
-        // 【自动修复】如果你忘了在Inspector里拖拽，脚本会尝试在自己身上找
         if (playerMovement == null) playerMovement = GetComponent<PlayerMovement>();
         if (itemCollector == null) itemCollector = GetComponent<item_collector>();
 
-        // 启动后台接收线程
-        receiveThread = new Thread(new ThreadStart(ReceiveData));
+        stopping = false;
+        receiveThread = new Thread(ReceiveData);
         receiveThread.IsBackground = true;
         receiveThread.Start();
 
-        Debug.Log($"<color=green>🚀 UDP 接收器已启动，正在监听端口: {port}</color>");
+        Debug.Log($"UDP receiver starting on port {port}.");
     }
 
-    // ==================== 后台线程：持续接收数据 ====================
     private void ReceiveData()
     {
+        UdpClient receiver = null;
+
         try
         {
-            client = new UdpClient(port);
-            while (true)
+            receiver = new UdpClient(port);
+            lock (dataLock)
+            {
+                if (stopping)
+                {
+                    receiver.Close();
+                    return;
+                }
+
+                client = receiver;
+            }
+
+            while (!stopping)
             {
                 IPEndPoint anyIP = new IPEndPoint(IPAddress.Any, 0);
-                byte[] dataByte = client.Receive(ref anyIP);
+                byte[] dataByte = receiver.Receive(ref anyIP);
                 string incomingData = Encoding.UTF8.GetString(dataByte);
 
-                // 加锁写入数据，防止主线程读取时发生冲突
                 lock (dataLock)
                 {
                     lastData = incomingData;
@@ -60,53 +70,69 @@ public class UDPReceiver : MonoBehaviour
         }
         catch (Exception e)
         {
-            Debug.LogWarning("UDP线程关闭或异常: " + e.Message);
+            if (!stopping)
+            {
+                lock (dataLock)
+                {
+                    receiveError = e.Message;
+                }
+            }
+        }
+        finally
+        {
+            if (receiver != null)
+            {
+                receiver.Close();
+                lock (dataLock)
+                {
+                    if (ReferenceEquals(client, receiver))
+                    {
+                        client = null;
+                    }
+                }
+            }
         }
     }
 
-    // ==================== 主线程：解析指令并执行 ====================
     private void Update()
     {
-        string currentData = "";
+        string currentData;
+        string currentError;
 
-        // 加锁读取最新数据
         lock (dataLock)
         {
             currentData = lastData;
-            // 如果你希望“E”只触发一次，可以在这里处理完后重置 lastData
+            lastData = "";
+            currentError = receiveError;
+            receiveError = "";
         }
 
-        if (string.IsNullOrEmpty(currentData)) return;
+        if (!string.IsNullOrEmpty(currentError))
+        {
+            Debug.LogWarning("UDP receiver stopped: " + currentError);
+        }
 
-        // --- 核心逻辑 A：处理交互指令 (E) ---
+        if (string.IsNullOrWhiteSpace(currentData)) return;
+
         if (currentData.Contains("E"))
         {
-            // 打印黄色调试日志，方便在控制台确认信号
-            Debug.Log($"<color=yellow>📡 [网络层] 收到 E 指令! 原始数据: {currentData}</color>");
-
             if (itemCollector != null)
             {
-                itemCollector.TryCollect(); // 调用全能交互器（吃樱桃+触发TriggerB）
+                itemCollector.TryCollect();
             }
             else
             {
-                Debug.LogError("❌ [错误] UDPReceiver 找不到 item_collector 脚本，请检查挂载！");
+                Debug.LogError("UDPReceiver could not find item_collector.");
             }
-
-            // 为了防止一瞬间触发太多次，处理完 E 后清除标志位
-            lock (dataLock) { lastData = lastData.Replace("E", ""); }
         }
 
-        // --- 核心逻辑 B：处理移动指令 (Left, Right, Up, None) ---
         if (playerMovement != null)
         {
-            // 1. 处理跳跃
             if (currentData.Contains("Up"))
             {
                 playerMovement.TriggerJump();
             }
 
-            // 2. 处理左右移动
             if (currentData == "None")
             {
                 playerMovement.SetHorizontalDirection(0f);
@@ -122,7 +148,6 @@ public class UDPReceiver : MonoBehaviour
         }
     }
 
-    // ==================== 退出清理 ====================
     private void OnDestroy()
     {
         CloseUDP();
@@ -135,13 +160,25 @@ public class UDPReceiver : MonoBehaviour
 
     private void CloseUDP()
     {
-        if (receiveThread != null && receiveThread.IsAlive)
+        UdpClient receiver;
+        Thread thread;
+
+        lock (dataLock)
         {
-            receiveThread.Abort();
+            stopping = true;
+            receiver = client;
+            client = null;
+            thread = receiveThread;
         }
-        if (client != null)
+
+        if (receiver != null)
         {
-            client.Close();
+            receiver.Close();
+        }
+
+        if (thread != null && thread.IsAlive && Thread.CurrentThread != thread)
+        {
+            thread.Join(500);
         }
     }
 }

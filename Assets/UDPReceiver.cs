@@ -44,7 +44,7 @@ public class UDPReceiver : MonoBehaviour
 
         try
         {
-            receiver = new UdpClient(port);
+            receiver = new UdpClient(new IPEndPoint(IPAddress.Loopback, port));
             lock (dataLock)
             {
                 if (stopping)

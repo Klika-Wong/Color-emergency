@@ -92,7 +92,8 @@ Color-emergency/
 2. 在 Unity Hub 中选择 **Add project from disk**，打开本仓库根目录。
 3. 打开 `Assets/Scenes/Level1.unity`。
 4. 检查 Console 是否存在资源导入或脚本编译错误。
-5. 在需要验证外部输入时，再根据本机环境配置 Python 依赖和输入设备。
+5. 需要验证手势输入时，安装 Python 依赖：`python -m pip install -r Assets/Scripts/requirements.txt`。
+6. 从仓库根目录运行 `python Assets/Scripts/gesture_control.py`，并允许程序访问摄像头。
 
 ## 技术栈
 

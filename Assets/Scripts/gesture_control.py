@@ -18,20 +18,22 @@ def get_camera():
             cap.release()
     return None
 
-cap = get_camera()
-if cap is None:
-    print("❌ 未找到任何可用摄像头，请检查 USB 连接！")
-    exit()
-
 # --- 2. 硬件参数初始化 ---
 W, H = 640, 480
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, W)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, H)
 
-# 针对外接摄像头的兼容性曝光设置
-# 如果设置后画面全黑，请手动注释掉下面两行
-cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25) 
-cap.set(cv2.CAP_PROP_EXPOSURE, -5) 
+
+def configure_camera(camera):
+    if camera is None:
+        return None
+    camera.set(cv2.CAP_PROP_FRAME_WIDTH, W)
+    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, H)
+    # These exposure values vary by camera driver; remove them if the image is dark.
+    camera.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+    camera.set(cv2.CAP_PROP_EXPOSURE, -5)
+    return camera
+
+
+cap = configure_camera(get_camera()) 
 
 # --- 3. 通信与算法配置 ---
 UDP_IP = "127.0.0.1"
@@ -70,10 +72,19 @@ def enhance_low_light(frame):
 print("🎮 强化版控制器已就绪 (支持外接摄像头 & 暗光优化)")
 
 while True:
+    if cap is None:
+        print("⚠️ 未找到摄像头，1 秒后重试...")
+        time.sleep(1)
+        cap = configure_camera(get_camera())
+        continue
+
     success, img = cap.read()
     if not success:
         print("⚠️ 无法获取摄像头画面，正在尝试重连...")
-        break
+        cap.release()
+        time.sleep(1)
+        cap = configure_camera(get_camera())
+        continue
     
     img = cv2.flip(img, 1)
 
@@ -154,5 +165,7 @@ while True:
     cv2.imshow("MOBA Controller (Enhanced)", display_img)
     if cv2.waitKey(1) & 0xFF == 27: break
 
-cap.release()
+if cap is not None:
+    cap.release()
+sock.close()
 cv2.destroyAllWindows()

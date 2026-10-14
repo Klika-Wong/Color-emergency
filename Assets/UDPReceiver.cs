@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -114,7 +115,23 @@ public class UDPReceiver : MonoBehaviour
 
         if (string.IsNullOrWhiteSpace(currentData)) return;
 
-        if (currentData.Contains("E"))
+        var commands = new HashSet<string>(currentData.Split('_'));
+        var allowedCommands = new HashSet<string> { "None", "Up", "Down", "Left", "Right", "E" };
+        foreach (string command in commands)
+        {
+            if (!allowedCommands.Contains(command))
+            {
+                Debug.LogWarning("UDP receiver ignored an unknown command.");
+                return;
+            }
+        }
+
+        if (commands.Contains("None") && commands.Count != 1)
+        {
+            return;
+        }
+
+        if (commands.Contains("E"))
         {
             if (itemCollector != null)
             {
@@ -128,20 +145,27 @@ public class UDPReceiver : MonoBehaviour
 
         if (playerMovement != null)
         {
-            if (currentData.Contains("Up"))
+            if (commands.Contains("Up"))
             {
                 playerMovement.TriggerJump();
             }
 
-            if (currentData == "None")
+            bool left = commands.Contains("Left");
+            bool right = commands.Contains("Right");
+            if (left && right)
+            {
+                return;
+            }
+
+            if (commands.Contains("None"))
             {
                 playerMovement.SetHorizontalDirection(0f);
             }
-            else if (currentData.Contains("Left"))
+            else if (left)
             {
                 playerMovement.SetHorizontalDirection(-1f);
             }
-            else if (currentData.Contains("Right"))
+            else if (right)
             {
                 playerMovement.SetHorizontalDirection(1f);
             }
